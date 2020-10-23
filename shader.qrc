@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>src/image.frag</file>
+        <file>src/image.vert</file>
+        <file>bg.frag</file>
+        <file>bg.vert</file>
+    </qresource>
+</RCC>
