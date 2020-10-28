@@ -17,7 +17,6 @@ public:
     void show() { QMainWindow::show(); quickOpen(); }
     ~MainWindow();
     void quickOpen();
-    void keyPressEvent(QKeyEvent *event);
 private:
     Ui::MainWindow *ui;
     void setImages(QString & source, QString & target);

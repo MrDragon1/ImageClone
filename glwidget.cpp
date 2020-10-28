@@ -1,18 +1,13 @@
 #include "glwidget.h"
 
 GLWidget::GLWidget(QWidget *parent):
-    QGLWidget(parent),
-    tex_tar(QOpenGLTexture::Target2D),
-    tex_src(QOpenGLTexture::Target2D),
-    tex_weight(QOpenGLTexture::Target2D),
-    tex_boundarycoords(QOpenGLTexture::Target2D)
+    QGLWidget(parent)
 {
     target_w = 400;
     target_h = 400;
 
     init = false;
     target = GL_TEXTURE_RECTANGLE_ARB;//GL_TEXTURE_2D;
-    selection.vertices = 0;
 
     selection.tx = 0;
     selection.ty = 0;
@@ -25,11 +20,8 @@ GLWidget::GLWidget(QWidget *parent):
 }
 
 
-void GLWidget::updateSelection(std::vector<CDTPoint> & boundaryVector, QPolygonF & selectionPoly, bool reset)
+void GLWidget::updateSelection(std::vector<CDTPoint> & boundaryVector)
 {
-
-    // Copy the data (we needed it in order to change the settings on the fly)
-    //this->selectionPoly = selectionPoly;
     this->boundaryVector = boundaryVector;
 
     mesh = new Mesh(boundaryVector);
@@ -42,40 +34,26 @@ void GLWidget::updateSelection(std::vector<CDTPoint> & boundaryVector, QPolygonF
     selection.weightsTex = new float[selection.boundarySize * selection.numPoints];
     selection.triangles = new Triangles[selection.numTriangles];
     selection.boundaryTex = new float[selection.boundarySize * 2];
-//    QFile file("./data.txt");
-//    if(! file.open(QIODevice::WriteOnly|QIODevice::Text))  //
-//    {
-//        QMessageBox::critical(this,"错误","文件打开失败，信息没有保存！","确定");
-//        return;
-//    }
-
-//    QTextStream out(&file);//写入
 
     for(int i = 0;i<selection.numPoints;i++)
     {
         selection.vertices[i].x = mesh->vertex_list[i].x();
         selection.vertices[i].y = mesh->vertex_list[i].y();
-//        out << selection.vertices[i].x <<" "<< selection.vertices[i].y<<endl;
     }
-//    out<<"########"<<endl;
     for(int i = 0;i<selection.numTriangles;i++)
     {
         selection.triangles[i].p1 = mesh->face_vertex_index[i][0];
         selection.triangles[i].p2 = mesh->face_vertex_index[i][1];
         selection.triangles[i].p3 = mesh->face_vertex_index[i][2];
-//        out <<selection.triangles[i].p1<<" "<<selection.triangles[i].p2<<" "<<selection.triangles[i].p3<<endl;
     }
-//    out<<"########"<<endl;
     for(int i = 0;i<selection.boundarySize;i++)
     {
         selection.boundaryCoords[i].x = boundaryVector[i].x();
         selection.boundaryCoords[i].y = boundaryVector[i].y();
         selection.boundaryTex[i] = boundaryVector[i].x();
         selection.boundaryTex[i + selection.boundarySize] = boundaryVector[i].y();
-//        out << boundaryVector[i].x() << " " << boundaryVector[i].y()<<endl;
     }
-//    file.close();
-//    qDebug()<<"file write done";
+
     for(size_t i = 0;i<selection.numPoints;i++)
     {
         float sum = 0;
@@ -109,7 +87,7 @@ void GLWidget::updateSelection(std::vector<CDTPoint> & boundaryVector, QPolygonF
     // set texture filtering parameters
     glTexParameteri(target,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
     glTexParameteri(target,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-    glTexImage2D(target, 0, GL_RED, 2,selection.boundarySize, 0, GL_RED, GL_FLOAT, selection.boundaryTex);
+    glTexImage2D(target, 0, GL_ALPHA32F_ARB, selection.boundarySize,2, 0, GL_ALPHA32F_ARB, GL_FLOAT, selection.boundaryTex);
 
     glGenTextures(1, &tex_weight_id);
     glBindTexture(target, tex_weight_id);
@@ -119,8 +97,7 @@ void GLWidget::updateSelection(std::vector<CDTPoint> & boundaryVector, QPolygonF
     // set texture filtering parameters
     glTexParameteri(target,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
     glTexParameteri(target,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-    glTexImage2D(target, 0, GL_RED,selection.boundarySize,selection.numPoints, 0, GL_RED, GL_FLOAT, selection.weightsTex);
-
+    glTexImage2D(target, 0, GL_ALPHA32F_ARB,selection.boundarySize,selection.numPoints, 0, GL_ALPHA, GL_FLOAT, selection.weightsTex);
     init = true;
 }
 
@@ -128,7 +105,7 @@ cv::Mat QImage2cvMat(QImage image)
 {
     using namespace cv;
     cv::Mat mat;
-    qDebug() << image.format();
+    //qDebug() << image.format();
     switch(image.format())
     {
     case QImage::Format_ARGB32:
@@ -140,117 +117,6 @@ cv::Mat QImage2cvMat(QImage image)
         break;
     }
     return mat;
-}
-
-void GLWidget::OriginalBlend()
-{
-    qDebug()<<"begin blend";
-    float fx=selection.tx+selection.dx;
-    float fy=selection.ty+selection.dy;
-    QImage tarimg = targetImage->copy();//->mirrored();
-    QImage srcimg = sourceImage->copy();//->mirrored();
-    tarimg.save("BlendImagebefore","jpg",100);
-
-    std::vector<int> diff;
-    for(size_t k = 0; k < selection.boundarySize; k++)
-    {
-
-        int i = selection.boundaryCoords[k].y,j = selection.boundaryCoords[k].x;
-        QColor t = tarimg.pixelColor(j + fx,tarimg.height() - i - fy);
-        QColor s = srcimg.pixelColor(j ,srcimg.height() - i);
-        diff.push_back(t.red() - s.red());
-        diff.push_back(t.green() - s.green());
-        diff.push_back(t.blue() - s.blue());
-    }
-
-    std::vector<std::vector<float>> tri_mesh_vertex_R;
-    for (size_t vi = 0; vi < selection.numPoints; ++vi)
-    {
-        std::vector<float> r(3,0);
-        for(size_t pi = 0; pi < selection.boundarySize; pi++)
-        {
-            float w = selection.weightsTex[vi * selection.boundarySize + pi];
-            r[0] += w * diff[pi * 3 + 0];
-            r[1] += w * diff[pi * 3 + 1];
-            r[2] += w * diff[pi * 3 + 2];
-        }
-        tri_mesh_vertex_R.push_back(r);
-    }
-    Point v1, v2, v3;
-    int ind1, ind2, ind3;
-    for (int i=0; i<selection.numTriangles; i++){
-        ind1 = selection.triangles[i].p1;
-        ind2 = selection.triangles[i].p2;
-        ind3 = selection.triangles[i].p3;
-
-        v1 = selection.vertices[ind1];
-        v2 = selection.vertices[ind2];
-        v3 = selection.vertices[ind3];
-
-
-        for (size_t ri = 0; ri < srcimg.height(); ++ri)
-        {
-           for (size_t ci = 0; ci < srcimg.width(); ++ci)
-           {
-               if(!PointinTriangle(v1,v2,v3,Point(ci,ri)))
-               {
-                   continue;
-               }
-
-               std::vector<double> r(3, 0);
-               for(int bi = 0; bi < 3; bi++)
-               {
-                   vector3d p0(v1.x, v1.y, tri_mesh_vertex_R[ind1][bi]);
-                   vector3d p1(v2.x, v2.y, tri_mesh_vertex_R[ind2][bi]);
-                   vector3d p2(v3.x, v3.y, tri_mesh_vertex_R[ind3][bi]);
-                   vector3d vp(ci, ri, 0);
-
-                   vp.CalPlanePointZ(p0, p1, p2);
-                   r[bi] = vp.z;
-               }
-
-               QColor s(srcimg.pixelColor(ci,srcimg.height() - ri).red() + r[0],
-                       srcimg.pixelColor(ci,srcimg.height() - ri).green() + r[1],
-                       srcimg.pixelColor(ci,srcimg.height() - ri).blue() + r[2]);
-
-               s.setRed(std::min(std::max(s.red(),0),255));
-               s.setGreen(std::min(std::max(s.green(),0),255));
-               s.setBlue(std::min(std::max(s.blue(),0),255));
-               tarimg.setPixelColor(ci + fx,tarimg.height() - ri - fy,s);
-           }
-        }
-    }
-    tarimg.save("BlendImage","jpg",100);
-    qDebug()<<"End blend";
-}
-
-bool GLWidget::PointinTriangle(Point A,Point B,Point C,Point P)
-{
-    Point v0 = C - A ;
-    Point v1 = B - A ;
-    Point v2 = P - A ;
-
-    float dot00 = v0.Dot(v0) ;
-    float dot01 = v0.Dot(v1) ;
-    float dot02 = v0.Dot(v2) ;
-    float dot11 = v1.Dot(v1) ;
-    float dot12 = v1.Dot(v2) ;
-
-    float inverDeno = 1 / (dot00 * dot11 - dot01 * dot01) ;
-
-    float u = (dot11 * dot02 - dot01 * dot12) * inverDeno ;
-    if (u < 0 || u > 1) // if u out of range, return directly
-    {
-        return false ;
-    }
-
-    float v = (dot00 * dot12 - dot01 * dot02) * inverDeno ;
-    if (v < 0 || v > 1) // if v out of range, return directly
-    {
-        return false ;
-    }
-
-    return u + v <= 1 ;
 }
 
 double GLWidget::CalcWeight(Point x,Point v1,Point v2,Point v3)
@@ -277,46 +143,27 @@ double GLWidget::CalcWeight(Point x,Point v1,Point v2,Point v3)
 
 void GLWidget::bindTarget(){
 
-    tex_tar.create();
-    tex_tar.setData(targetImage->mirrored());
-    tex_tar.setMinMagFilters(QOpenGLTexture::LinearMipMapLinear,QOpenGLTexture::Linear);
-    tex_tar.setWrapMode(QOpenGLTexture::DirectionS,QOpenGLTexture::Repeat);
-    tex_tar.setWrapMode(QOpenGLTexture::DirectionT,QOpenGLTexture::Repeat);
-glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glGenTextures(1, &tex_tar_id);
     glBindTexture(target, tex_tar_id);
-    // set the texture wrapping parameters
-    glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
-    glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    // set texture filtering parameters
     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(target, 0, GL_RGBA, targetImage->width(),targetImage->height(), 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, targetImage->mirrored().bits());
     qDebug()<<"bind target done";
-//    float* data = new float[32*32*4];
-//    glReadPixels(0,0,32,32,GL_RGBA,GL_FLOAT,data);
-//    for(int i = 0;i<32*32;i+=4)
-//        qDebug()<<data[i]<<" "<<data[i+1]<<" "<<data[i+2]<<" "<<data[i+3]<<" ";
 }
 
 void GLWidget::bindSource(){
-    tex_src.create();
-    tex_src.setData(sourceImage->mirrored());
-    tex_src.setMinMagFilters(QOpenGLTexture::LinearMipMapLinear,QOpenGLTexture::Linear);
-    tex_src.setWrapMode(QOpenGLTexture::DirectionS,QOpenGLTexture::Repeat);
-    tex_src.setWrapMode(QOpenGLTexture::DirectionT,QOpenGLTexture::Repeat);
 glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glGenTextures(1, &tex_src_id);
     glBindTexture(target, tex_src_id);
-    // set the texture wrapping parameters
-    glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
-    glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    // set texture filtering parameters
+//    // set the texture wrapping parameters
+//    glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
+//    glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_REPEAT);
+//    // set texture filtering parameters
     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(target, 0, GL_RGBA, sourceImage->width(),sourceImage->height(), 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, sourceImage->mirrored().bits());
     qDebug()<<"bind source done";
-    //qDebug()<<sourceImage->format()<<" "<<targetImage->format();
 }
 
 void GLWidget::setTargetImage(const QImage & image){
@@ -325,7 +172,7 @@ void GLWidget::setTargetImage(const QImage & image){
         delete targetImage;
 
     targetImage = new QImage(image.copy());
-    targetImage->save("./targetImage","jpg",100);
+    //targetImage->save("./targetImage","jpg",100);
     target_w = image.width();
     target_h = image.height();
     bindTarget();
@@ -338,19 +185,16 @@ void GLWidget::setSourcePatch(const QImage & image)
         delete sourceImage;
 
     sourceImage = new QImage(image.copy());
-    sourceImage->save("./sourceImage","jpg",100);
-    selection_w = image.width();
-    selection_h = image.height();
-    source_h = selection_h;
-    source_w = selection_w;
+    //sourceImage->save("./sourceImage","jpg",100);
+    source_h = image.height();
+    source_w = image.width();
     bindSource();
 }
 
 void GLWidget::initializeGL(){
 
     glClearColor(0.0, 0.0, 0.0, 1.0);
-    glDisable(GL_DEPTH_TEST);
-
+    glEnable(GL_ARB_texture_float);
     glEnable(target);
 
     loadShaders();
@@ -360,7 +204,6 @@ void GLWidget::initializeGL(){
     VAO = new QOpenGLVertexArrayObject();
     VAO->create();
 
-    qDebug()<<"test point initGL ";
     update();
 }
 
@@ -432,130 +275,52 @@ void GLWidget::paintGL(){
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glEnable(target);
+
+    /*
+        draw the target picture
+    */
     bgprogram->bind();
-//    QVector<float> vertices={
-//            // 位置                  //纹理坐标
-//             1.0f, -1.0f,       1.0f, 0.0f,
-//            -1.0f, -1.0f,       0.0f, 0.0f,
-//            -1.0f,  1.0f,       0.0f, 1.0f,
-//             1.0f,  1.0f,       1.0f, 1.0f,
-//        };
-    QVector<float> vertices={
-            // 位置                  //纹理坐标
-             1.0f, -1.0f,       (float)target_w, 0.0f,
-            -1.0f, -1.0f,       0.0f, 0.0f,
-            -1.0f,  1.0f,       0.0f, (float)target_h,
-             1.0f,  1.0f,       (float)target_w, (float)target_h,
-        };
-    QOpenGLVertexArrayObject::Binder vaoBind(VAO);
+        QVector<float> vertices={
+                // 位置                  //纹理坐标
+                 1.0f, -1.0f,       (float)target_w, 0.0f,
+                -1.0f, -1.0f,       0.0f, 0.0f,
+                -1.0f,  1.0f,       0.0f, (float)target_h,
+                 1.0f,  1.0f,       (float)target_w, (float)target_h,
+            };
+        QOpenGLVertexArrayObject::Binder vaoBind(VAO);
 
-    VBO->create();
-    VBO->bind();
-    VBO->allocate(vertices.data(),sizeof(float)*vertices.size());
+        VBO->create();
+        VBO->bind();
+        VBO->allocate(vertices.data(),sizeof(float)*vertices.size());
 
-    int attr = -1;
-    attr = bgprogram->attributeLocation("aPos");
-    bgprogram->setAttributeBuffer(attr, GL_FLOAT, 0, 2, sizeof(GLfloat) * 4);
-    bgprogram->enableAttributeArray(attr);
+        int attr = -1;
+        attr = bgprogram->attributeLocation("aPos");
+        bgprogram->setAttributeBuffer(attr, GL_FLOAT, 0, 2, sizeof(GLfloat) * 4);
+        bgprogram->enableAttributeArray(attr);
 
-    attr = bgprogram->attributeLocation("TexCoords");
-    bgprogram->setAttributeBuffer(attr, GL_FLOAT, sizeof(GLfloat) * 2, 2, sizeof(GLfloat) * 4);
-    bgprogram->enableAttributeArray(attr);
-    VBO->release();
+        attr = bgprogram->attributeLocation("TexCoords");
+        bgprogram->setAttributeBuffer(attr, GL_FLOAT, sizeof(GLfloat) * 2, 2, sizeof(GLfloat) * 4);
+        bgprogram->enableAttributeArray(attr);
+        VBO->release();
 
+        glActiveTexture(GL_TEXTURE0_ARB);
+        glBindTexture(target, tex_tar_id);
+        bgprogram->setUniformValue("texture0",0);
 
-    glActiveTexture(GL_TEXTURE0_ARB);
-    glBindTexture(target, tex_tar_id);
-    //tex_tar.bind(0);
-    bgprogram->setUniformValue("texture0",0);
-
-    QOpenGLVertexArrayObject::Binder vaoBind1(VAO);
-    glDrawArrays(GL_POLYGON,0,4);
-
+        QOpenGLVertexArrayObject::Binder vaoBind1(VAO);
+        glDrawArrays(GL_POLYGON,0,4);
     bgprogram->release();
 
-
-    // Transform the selection patch
-    //glTranslatef(selection.tx+selection.dx, selection.ty+selection.dy, 0);
-
-    glEnable(target);
     paintSelection();
     //paintMesh();
-    //paintDot();
 }
 
-void GLWidget::paintDot()
-{
-    if (!init)
-        return;
-    float fx=selection.tx+selection.dx;
-    float fy=selection.ty+selection.dy;
-    int ind1, ind2, ind3;
-    Point v1, v2, v3;
-
-    program->bind();
-    glEnable(target);
-
-    glActiveTexture(GL_TEXTURE0_ARB);
-    glBindTexture(target, tex_tar_id);
-
-    glActiveTexture(GL_TEXTURE1_ARB);
-    glBindTexture(target, tex_src_id);
-
-    //tex_tar.bind(0);
-    program->setUniformValue("tex_tar",0);
-
-    //tex_src.bind(1);
-    program->setUniformValue("tex_src",1);
-
-    glActiveTexture(GL_TEXTURE2_ARB);
-    glBindTexture(target, tex_weight_id);
-    program->setUniformValue("tex_weight",2);
-
-    glActiveTexture(GL_TEXTURE3_ARB);
-    glBindTexture(target, tex_boundarycoords_id);
-    program->setUniformValue("tex_boundarycoords",3);
-
-    program->setUniformValue("boundarysize",(int)selection.boundarySize);
-    for (int i=0; i<selection.numTriangles; i++){
-
-        glBegin(GL_TRIANGLES);
-        ind1 = selection.triangles[i].p1;
-        ind2 = selection.triangles[i].p2;
-        ind3 = selection.triangles[i].p3;
-
-        v1 = selection.vertices[ind1];
-        v2 = selection.vertices[ind2];
-        v3 = selection.vertices[ind3];
-
-        glMultiTexCoord2fARB(GL_TEXTURE0_ARB,v1.x + fx,v1.y + fy);
-        glMultiTexCoord2fARB(GL_TEXTURE1_ARB,v1.x,v1.y);
-        glMultiTexCoord2fARB(GL_TEXTURE2_ARB,0,ind1);
-        glMultiTexCoord2fARB(GL_TEXTURE3_ARB,0,0);
-        glVertex2f(v1.x + fx ,v1.y + fy);
-
-        glMultiTexCoord2fARB(GL_TEXTURE0_ARB,v2.x + fx,v2.y + fy);
-        glMultiTexCoord2fARB(GL_TEXTURE1_ARB,v2.x,v2.y);
-        glMultiTexCoord2fARB(GL_TEXTURE2_ARB,0,ind2);
-        glMultiTexCoord2fARB(GL_TEXTURE3_ARB,0,0);
-        glVertex2f(v2.x + fx, v2.y + fy);
-
-        glMultiTexCoord2fARB(GL_TEXTURE0_ARB,v3.x + fx,v3.y + fy);
-        glMultiTexCoord2fARB(GL_TEXTURE1_ARB,v3.x,v3.y);
-        glMultiTexCoord2fARB(GL_TEXTURE2_ARB,0,ind3);
-        glMultiTexCoord2fARB(GL_TEXTURE3_ARB,0,0);
-        glVertex2f(v3.x + fx, v3.y + fy);
-
-        glEnd();
-    }
-}
-
+//paint the blend picture
 void GLWidget::paintSelection(){
 
     if (!init)
         return;
     program->bind();
-
     float fx=selection.tx+selection.dx;
     float fy=selection.ty+selection.dy;
 
@@ -564,19 +329,6 @@ void GLWidget::paintSelection(){
 
     QImage tarimg = targetImage->mirrored();
     QImage srcimg = sourceImage->mirrored();
-    float *data = new float[selection.boundarySize * 6];
-    for(size_t k = 0; k < selection.boundarySize; k++)
-    {
-        int i = selection.boundaryCoords[k].y,j = selection.boundaryCoords[k].x;
-        QColor t = tarimg.pixelColor(j + fx,i + fy);
-        QColor s = srcimg.pixelColor(j ,i);
-        data[i] = (float)(t.red());
-        data[i + selection.boundarySize] = (float)(t.green());
-        data[i + selection.boundarySize * 2] = (float)(t.blue());
-        data[i + selection.boundarySize * 3] = (float)(s.red());
-        data[i + selection.boundarySize * 4] = (float)(s.green());
-        data[i + selection.boundarySize * 5] = (float)(s.blue());
-    }
 
     std::vector<int> diff;
     for(size_t k = 0; k < selection.boundarySize; k++)
@@ -603,19 +355,6 @@ void GLWidget::paintSelection(){
         }
         tri_mesh_vertex_R.push_back(r);
     }
-
-    //qDebug()<<data[10]<<" "<<data[selection.boundarySize + 10]<<" "<<data[selection.boundarySize*2 + 10];
-    GLuint tmptex;
-    glGenTextures(1, &tmptex);
-    glBindTexture(target, tmptex);
-    // set the texture wrapping parameters
-    glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_NEAREST);	// set texture wrapping to GL_REPEAT (default wrapping method)
-    glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_NEAREST);
-    // set texture filtering parameters
-    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(target, 0, GL_LUMINANCE32F_ARB,6,selection.boundarySize, 0, GL_LUMINANCE, GL_FLOAT, data);
-
 
     std::vector<float> vertices;
     for (int i=0; i<selection.numTriangles; i++){
@@ -667,26 +406,19 @@ void GLWidget::paintSelection(){
 
     glActiveTexture(GL_TEXTURE0_ARB);
     glBindTexture(target, tex_tar_id);
-//    tex_tar.bind(0);
     program->setUniformValue("tex_tar",0);
 
     glActiveTexture(GL_TEXTURE1_ARB);
     glBindTexture(target, tex_src_id);
-//    tex_src.bind(1);
     program->setUniformValue("tex_src",1);
 
-    glActiveTexture(GL_TEXTURE2_ARB);
-    glBindTexture(target, tex_weight_id);
-    program->setUniformValue("tex_weight",2);
+//    glActiveTexture(GL_TEXTURE2_ARB);
+//    glBindTexture(target, tex_weight_id);
+//    program->setUniformValue("tex_weight",2);
 
-    glActiveTexture(GL_TEXTURE3_ARB);
-    glBindTexture(target, tex_boundarycoords_id);
-    program->setUniformValue("tex_boundarycoords",3);
-
-    glActiveTexture(GL_TEXTURE4_ARB);
-    glBindTexture(target, tmptex);
-    program->setUniformValue("tex_err",4);
-
+//    glActiveTexture(GL_TEXTURE3_ARB);
+//    glBindTexture(target, tex_boundarycoords_id);
+//    program->setUniformValue("tex_boundarycoords",3);
 
     program->setUniformValue("fx",(float)(fx/target_w));
     program->setUniformValue("fy",(float)(fy/target_h));
@@ -697,15 +429,15 @@ void GLWidget::paintSelection(){
     program->setUniformValue("source_w",(float)source_w);
     program->setUniformValue("source_h",(float)source_h);
     program->setUniformValue("boundarysize",(int)selection.boundarySize);
-//    program->setUniformValue("numpoints",selection.numPoints);
+
     QOpenGLVertexArrayObject::Binder vaoBind1(VAO);
     glDrawArrays(GL_TRIANGLES, 0, vertices.size());
-
-//    glFlush();
 
     program->release();
 }
 
+
+//paint the tirangle mesh
 void GLWidget::paintMesh(){
 
     if (!init)
@@ -739,8 +471,6 @@ void GLWidget::paintMesh(){
 }
 
 void GLWidget::resizeGL(int width, int height){
-
-    /* Identity mapping between image and GL coordinates */
     glViewport(0, 0, (GLsizei)width, (GLsizei)height) ;
     glMatrixMode(GL_PROJECTION) ;
     glLoadIdentity() ;

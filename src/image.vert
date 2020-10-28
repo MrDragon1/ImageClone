@@ -2,7 +2,7 @@
 layout (location = 0) in vec2 aPos;
 layout (location = 1) in vec2 rPos;
 layout (location = 2) in float index;
-layout (location = 2) in vec3 mem;
+layout (location = 3) in vec3 mem;
 
 varying vec4 ourColor;
 out vec2 Pos;
@@ -20,54 +20,25 @@ uniform float source_w;
 uniform float source_h;
 uniform float target_w;
 uniform float target_h;
+
 void main()
 {
     gl_Position = vec4(aPos+vec2(fx,fy),0.0,1.0);
     gl_Position = gl_Position * 2 - vec4(1.0,1.0,0.0,1.0);
-    ourColor = vec4(0.0);
-    float x,y;
-    bool flag = false;
-    for(int t = 0; t < boundarysize; t++){
-        x = texture2DRect(tex_boundarycoords,vec2(0,t)).x;
-        y = texture2DRect(tex_boundarycoords,vec2(1,t)).x;
-        //y = target_h - y;
-        vec2 tar_coord = vec2(fx1,fy1) + vec2(x,y);
-        vec2 src_coord = vec2(x,y);
-        vec4 err = texture2DRect(tex_tar, tar_coord) - texture2DRect(tex_src, src_coord);
-        float w = texture2DRect(tex_weight,vec2(t,index)).x;
-        ourColor += err * w ;
-        //if(texture2DRect(tex_tar, tar_coord).y > 10.0) flag= true;
-    }
-    //ourColor = vec4(mem/255.0,1.0);
-    //if(flag) ourColor = vec4(1.0);
-    Pos = vec2(rPos.x,rPos.y);
-}
-//uniform sampler2DRect tex_tar;
-//uniform sampler2DRect tex_src;
-//uniform sampler2DRect tex_weight;
-//uniform sampler2DRect tex_boundarycoords;
-//varying vec4 membrane;
-//uniform int boundarysize;
-//void main()
-//{
-//    gl_TexCoord[0] = gl_MultiTexCoord0;
-//    gl_TexCoord[1] = gl_MultiTexCoord1;
-//    gl_TexCoord[2] = gl_MultiTexCoord2;
-//    vec2 shift = gl_TexCoord[0].xy - gl_TexCoord[1].xy;
-//    membrane = vec4(0.0);
+//    ourColor = vec4(0.0);
 //    float x,y;
 //    bool flag = false;
-//    for(int t = 0;t<boundarysize;t++)
-//    {
-//        x = texture2DRect(tex_boundarycoords,vec2(0.0,t)).x;
-//        y = texture2DRect(tex_boundarycoords,vec2(1.0,t)).x;
-//        vec2 tar_coord = vec2(x,y) + shift;
+//    for(int t = 0; t < boundarysize; t++){
+//        x = texture2DRect(tex_boundarycoords,vec2(t,0)).a;
+//        y = texture2DRect(tex_boundarycoords,vec2(t,1)).a;
+//        vec2 tar_coord = vec2(fx1,fy1) + vec2(x,y);
 //        vec2 src_coord = vec2(x,y);
+//        vec4 err = vec4(texture2DRect(tex_err,vec2(t,0)).a,texture2DRect(tex_err,vec2(t,1)).a,texture2DRect(tex_err,vec2(t,2)).a,1.0)
+//                -  vec4(texture2DRect(tex_err,vec2(t,3)).a,texture2DRect(tex_err,vec2(t,4)).a,texture2DRect(tex_err,vec2(t,5)).a,0.0);
 //        vec4 err = texture2DRect(tex_tar, tar_coord) - texture2DRect(tex_src, src_coord);
-//        float w = texture2DRect(tex_weight,gl_TexCoord[2].st + vec2(t,0.0)).x;
-//        membrane += err * w ;
+//        float w = texture2DRect(tex_weight,vec2(t,index)).a;
+//        ourColor += err * w ;
 //    }
-//    if(flag) membrane = vec4(1.0);
-
-//    gl_Position = ftransform();
-//}
+    ourColor = vec4(mem/255.0,1.0);
+    Pos = rPos.xy;
+}

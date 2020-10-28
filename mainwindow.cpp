@@ -54,18 +54,9 @@ void MainWindow::setImages(QString & source, QString & target){
         glWidget->show();
     }
 
-    glWidget->notInit(); // Till user selects something
+    glWidget->notInit();
     glWidget->update();
 }
 
-void MainWindow::keyPressEvent(QKeyEvent *event)
 
-{
-    if (event->modifiers() & Qt::AltModifier)
-       {
-        if (event->key() == Qt::Key_1)//单键触发
-        {
-            glWidget->OriginalBlend();
-        }
-    }
-}
+

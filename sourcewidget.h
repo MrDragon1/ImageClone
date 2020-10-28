@@ -16,21 +16,12 @@ class SourceWidget : public QDialog
 public:
     SourceWidget(QWidget * parent, GLWidget* gl);
     void setImage(const QImage & img);
-    void setPenColor(const QColor & newColor);
-    void setPenWidth(int newWidth);
-    QColor penColor() const { return myPenColor; }
-    int penWidth() const { return myPenWidth; }
-
 protected:
     void mousePressEvent(QMouseEvent * event);
     void mouseMoveEvent(QMouseEvent * event);
     void mouseReleaseEvent(QMouseEvent * event);
     void paintEvent(QPaintEvent * event);
-//    void resizeEvent(QResizeEvent * event);
-
 private:
-//    void resizeImage(QImage * image, const QSize & newSize);
-
     // Boundary tracing aux method
     QPoint findStartingFromDir(QPolygonF & selectionPoly, int x, int y, int & dir);
 
@@ -43,7 +34,6 @@ private:
     int myPenWidth;
     QColor myPenColor;
     QImage image;
-    cv::Mat src_mat;
 
 };
 

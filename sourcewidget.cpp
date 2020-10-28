@@ -1,69 +1,29 @@
-
-
 #include <QtGui>
 #include <QMessageBox>
 #include <iostream>
 #include "sourcewidget.h"
 #include "glwidget.h"
 
-
-class MainWindow;
-
 using std::cout;
 using std::endl;
 
 SourceWidget::SourceWidget(QWidget *parent, GLWidget *gl)
         : QDialog(parent){
-
     setAttribute(Qt::WA_StaticContents);
     myPenWidth = 3;
     myPenColor = Qt::blue;
     setWindowTitle(tr("Source Image"));
-
     glWidget = gl;
 
 }
 
-cv::Mat QImage2cvMat1(QImage image)
-{
-    using namespace cv;
-    cv::Mat mat;
-    qDebug() << image.format();
-    switch(image.format())
-    {
-    case QImage::Format_ARGB32:
-    case QImage::Format_RGB32:
-        mat = cv::Mat(image.height(), image.width(), CV_8UC4, (void*)image.constBits(), image.bytesPerLine());
-        break;
-    case QImage::Format_Indexed8:
-        mat = cv::Mat(image.height(), image.width(), CV_8UC1, (void*)image.constBits(), image.bytesPerLine());
-        break;
-    }
-    return mat;
-}
-
 void SourceWidget::setImage(const QImage &img){
-//    this->resize(image.width(),image.height());
     path = QPainterPath();
     image = img;
-    src_mat = QImage2cvMat1(image);
-
     update();
 }
 
-void SourceWidget::setPenColor(const QColor &newColor){
-
-    myPenColor = newColor;
-}
-
-void SourceWidget::setPenWidth(int newWidth){
-
-    myPenWidth = newWidth;
-}
-
 void SourceWidget::mousePressEvent(QMouseEvent *event){
-//    qDebug()<<this->width()<<","<<this->height();
-//    qDebug()<<image.width()<<","<<image.height();
     if (event->button() == Qt::LeftButton) {
         lastPoint = event->pos();
         path = QPainterPath(event->pos());
@@ -77,14 +37,7 @@ void SourceWidget::mouseMoveEvent(QMouseEvent *event){
         path.lineTo(event->pos());
         update();
     }
-    //image.setPixelColor(event->pos().x(),event->pos().y(),QColor(255,255,255));
-//    src_mat.at<cv::Vec3b>(event->pos().y(),event->pos().x())[0] = 255;
-//    src_mat.at<cv::Vec3b>(event->pos().y(),event->pos().x())[1] = 255;
-//    src_mat.at<cv::Vec3b>(event->pos().y(),event->pos().x())[2] = 255;
-    //qDebug()<<event->pos().x()<<"," << event->pos().y() << " "<< path.currentPosition().x()<<","<<path.currentPosition().y();
 }
-
-
 
 // Find next boundary pixel starting from position (x,y) which is guaranteed to be
 // on the boundary, while previous direction was dir
@@ -186,8 +139,8 @@ void SourceWidget::mouseReleaseEvent(QMouseEvent *event)
         path.connectPath(path);
         update();
 
-//		if (path.length()<20)
-//			return;
+        if (path.length()<20)
+            return;
 
         QPolygonF selectionPoly = path.toFillPolygon();
         QRectF boundingRect = selectionPoly.boundingRect();
@@ -216,8 +169,8 @@ void SourceWidget::mouseReleaseEvent(QMouseEvent *event)
 
             }
         }
+
         //assert(cPoint != QPoint(-1,-1));
-        //TODO: No violence please...
         if (cPoint == QPoint(-1,-1)){
             qDebug() << "assert(cPoint != QPoint(-1,-1)) fails";
             return;
@@ -225,14 +178,6 @@ void SourceWidget::mouseReleaseEvent(QMouseEvent *event)
         // Track the boundary of the selection
         std::vector<CDTPoint> boundaryVector;
 
-//    for(int i = 0;i<path.elementCount();i++)
-//    {
-//        auto p = path.elementAt(i);
-//        src_mat.at<cv::Vec3b>(p.y,p.x)[0] = 255;
-//        src_mat.at<cv::Vec3b>(p.y,p.x)[1] = 255;
-//        src_mat.at<cv::Vec3b>(p.y,p.x)[2] = 255;
-//    }
-        // TODO: Why does it fail with dir=0 ???
         int dir = 1;
         int x,y;
         int c=0;
@@ -258,17 +203,7 @@ void SourceWidget::mouseReleaseEvent(QMouseEvent *event)
                                tr("Largest supported boundary size is 8192"));
             return;
         }
-
-//        for(auto p:boundaryVector)
-//        {
-//            src_mat.at<cv::Vec3b>(src_mat.rows - p.y(),p.x())[0] = 255;
-//            src_mat.at<cv::Vec3b>(src_mat.rows - p.y(),p.x())[1] = 255;
-//            src_mat.at<cv::Vec3b>(src_mat.rows - p.y(),p.x())[2] = 255;
-//        }
-        //cv::imshow( "Blend image", src_mat);
-
-        selectionPoly.translate(-x0,-y0);
-        glWidget->updateSelection(boundaryVector, selectionPoly);
+        glWidget->updateSelection(boundaryVector);
         glWidget->update();
     }
 }
@@ -282,29 +217,7 @@ void SourceWidget::paintEvent(QPaintEvent * /* event */)
     painter.drawImage(QPoint(0, 0), image);
 
     painter.drawPath(path);
-//    update();
+    update();
 }
 
-//void SourceWidget::resizeEvent(QResizeEvent *event)
-//{
-//    if (width() > image.width() || height() > image.height()) {
-//        int newWidth = qMax(width() + 128, image.width());
-//        int newHeight = qMax(height() + 128, image.height());
-//        resizeImage(&image, QSize(newWidth, newHeight));
-//        update();
-//    }
-//    QWidget::resizeEvent(event);
-//}
-
-//void SourceWidget::resizeImage(QImage *image, const QSize &newSize)
-//{
-//    if (image->size() == newSize)
-//        return;
-
-//    QImage newImage(newSize, QImage::Format_RGB32);
-//    newImage.fill(qRgb(255, 255, 255));
-//    QPainter painter(&newImage);
-//    painter.drawImage(QPoint(0, 0), *image);
-//    *image = newImage;
-//}
 
