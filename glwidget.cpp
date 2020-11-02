@@ -19,7 +19,7 @@ GLWidget::GLWidget(QWidget *parent):
 
 }
 
-
+/*从sourcewidget接收边界顶点的数据，通过mesh处理后得到selection结构体中所需的数据，保存在结构体中*/
 void GLWidget::updateSelection(std::vector<CDTPoint> & boundaryVector)
 {
     this->boundaryVector = boundaryVector;
@@ -53,7 +53,7 @@ void GLWidget::updateSelection(std::vector<CDTPoint> & boundaryVector)
         selection.boundaryTex[i] = boundaryVector[i].x();
         selection.boundaryTex[i + selection.boundarySize] = boundaryVector[i].y();
     }
-
+    /*计算每个点的MVC*/
     for(size_t i = 0;i<selection.numPoints;i++)
     {
         float sum = 0;
@@ -76,25 +76,19 @@ void GLWidget::updateSelection(std::vector<CDTPoint> & boundaryVector)
         }
     }
 
-    selection.diff.resize(selection.boundarySize);
-    for(int i = 0;i<selection.boundarySize;i++) selection.diff[i].resize(3);
-
+    //将数据利用纹理传递给shader
     glGenTextures(1, &tex_boundarycoords_id);
     glBindTexture(target, tex_boundarycoords_id);
-    // set the texture wrapping parameters
     glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP);
-    // set texture filtering parameters
     glTexParameteri(target,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
     glTexParameteri(target,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
     glTexImage2D(target, 0, GL_ALPHA32F_ARB, selection.boundarySize,2, 0, GL_ALPHA32F_ARB, GL_FLOAT, selection.boundaryTex);
 
     glGenTextures(1, &tex_weight_id);
     glBindTexture(target, tex_weight_id);
-    // set the texture wrapping parameters
     glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP);
-    // set texture filtering parameters
     glTexParameteri(target,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
     glTexParameteri(target,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
     glTexImage2D(target, 0, GL_ALPHA32F_ARB,selection.boundarySize,selection.numPoints, 0, GL_ALPHA, GL_FLOAT, selection.weightsTex);
@@ -153,13 +147,9 @@ void GLWidget::bindTarget(){
 }
 
 void GLWidget::bindSource(){
-glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glGenTextures(1, &tex_src_id);
     glBindTexture(target, tex_src_id);
-//    // set the texture wrapping parameters
-//    glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
-//    glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_REPEAT);
-//    // set texture filtering parameters
     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(target, 0, GL_RGBA, sourceImage->width(),sourceImage->height(), 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, sourceImage->mirrored().bits());
@@ -172,7 +162,6 @@ void GLWidget::setTargetImage(const QImage & image){
         delete targetImage;
 
     targetImage = new QImage(image.copy());
-    //targetImage->save("./targetImage","jpg",100);
     target_w = image.width();
     target_h = image.height();
     bindTarget();
@@ -185,12 +174,12 @@ void GLWidget::setSourcePatch(const QImage & image)
         delete sourceImage;
 
     sourceImage = new QImage(image.copy());
-    //sourceImage->save("./sourceImage","jpg",100);
     source_h = image.height();
     source_w = image.width();
     bindSource();
 }
 
+/*初始化*/
 void GLWidget::initializeGL(){
 
     glClearColor(0.0, 0.0, 0.0, 1.0);
@@ -207,6 +196,7 @@ void GLWidget::initializeGL(){
     update();
 }
 
+/*加载两个着色器*/
 void GLWidget::loadShaders()
 {
     QString vertexcode,fragmentcode;
@@ -271,13 +261,14 @@ void GLWidget::loadShaders()
     }
 }
 
+
 void GLWidget::paintGL(){
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glEnable(target);
 
     /*
-        draw the target picture
+        绘制背景图片，即目标图片
     */
     bgprogram->bind();
         QVector<float> vertices={
@@ -311,16 +302,18 @@ void GLWidget::paintGL(){
         glDrawArrays(GL_POLYGON,0,4);
     bgprogram->release();
 
+    /*选择绘制融合的图片或者只绘制triangle mesh*/
     paintSelection();
     //paintMesh();
 }
 
-//paint the blend picture
+/*绘制融合的图片*/
 void GLWidget::paintSelection(){
 
     if (!init)
         return;
     program->bind();
+    //目标图片与源图片位置的偏移量
     float fx=selection.tx+selection.dx;
     float fy=selection.ty+selection.dy;
 
@@ -330,6 +323,7 @@ void GLWidget::paintSelection(){
     QImage tarimg = targetImage->mirrored();
     QImage srcimg = sourceImage->mirrored();
 
+    /*计算MVC值*/
     std::vector<int> diff;
     for(size_t k = 0; k < selection.boundarySize; k++)
     {
@@ -356,6 +350,7 @@ void GLWidget::paintSelection(){
         tri_mesh_vertex_R.push_back(r);
     }
 
+    /* 生成顶点属性数组 */
     std::vector<float> vertices;
     for (int i=0; i<selection.numTriangles; i++){
         ind1 = selection.triangles[i].p1;
@@ -376,7 +371,7 @@ void GLWidget::paintSelection(){
         vertices.push_back(tri_mesh_vertex_R[ind3][0]);vertices.push_back(tri_mesh_vertex_R[ind3][1]);vertices.push_back(tri_mesh_vertex_R[ind3][2]);
     }
 
-
+    /* 传递顶点属性到shader，设置统一变量 */
     QOpenGLVertexArrayObject::Binder vaoBind(VAO);
 
     VBO->create();
@@ -399,8 +394,6 @@ void GLWidget::paintSelection(){
     attr = program->attributeLocation("mem");
     program->setAttributeBuffer(attr, GL_FLOAT, sizeof(GLfloat) * 5, 3, sizeof(GLfloat) * 8);
     program->enableAttributeArray(attr);
-
-
 
     VBO->release();
 
@@ -437,7 +430,7 @@ void GLWidget::paintSelection(){
 }
 
 
-//paint the tirangle mesh
+/*绘制triangle mesh*/
 void GLWidget::paintMesh(){
 
     if (!init)

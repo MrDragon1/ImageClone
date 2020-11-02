@@ -29,15 +29,13 @@ SOURCES += \
         main.cpp \
         mainwindow.cpp \
         mesh.cpp \
-        sourcewidget.cpp \
-        vector3d.cpp
+        sourcewidget.cpp
 
 HEADERS += \
         glwidget.h \
         mainwindow.h \
         mesh.h \
-        sourcewidget.h \
-        vector3d.h
+        sourcewidget.h
 
 
 FORMS += \

@@ -17,21 +17,20 @@
 #include <QOpenGLFunctions_3_3_Core>
 #include <QOpenGLTexture>
 #include <opencv2/opencv.hpp>
-#include "vector3d.h"
 
+
+//保存每一次绘制所需的信息
 typedef struct  {
     int numPoints;
     int numTriangles;
     int boundarySize;
 
-    Point *  vertices;//store all the points
-    Triangles * triangles;
-    Point * boundaryCoords;//store the boundary points
-    float * boundaryTex;//
+    Point *  vertices;//保存所有顶点
+    Triangles * triangles;//保存mesh中的三角形
+    Point * boundaryCoords;//保存边界的坐标
+    float * boundaryTex;//纹理的原始数据
     float * weightsTex;//
-    QVector<QVector<float>> diff;//
 
-    //store the shift between source picture and target picture
     float tx, ty;
     float dx, dy;
 
@@ -77,13 +76,13 @@ private:
     GLenum target;
     GLuint tex_tar_id, tex_src_id, tex_weight_id,tex_boundarycoords_id;
 
-    QOpenGLShaderProgram * program;
-    QOpenGLShaderProgram * bgprogram;//draw the target picture in the background
+    QOpenGLShaderProgram * program;//绘制融合后的图片
+    QOpenGLShaderProgram * bgprogram;//绘制背景图片
     QOpenGLBuffer* VBO;
     QOpenGLVertexArrayObject* VAO;
 
-    std::vector<CDTPoint> boundaryVector;//store the points on the boundary
-    int click_x, click_y;//the start point of the boundary
+    std::vector<CDTPoint> boundaryVector;//保存从sourcewidget接收的边界坐标
+    int click_x, click_y;
 
 };
 #endif // GLWIDGET_H

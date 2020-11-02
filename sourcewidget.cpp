@@ -130,8 +130,7 @@ QPoint SourceWidget::findStartingFromDir(QPolygonF & selectionPoly, int x, int y
 
 void SourceWidget::mouseReleaseEvent(QMouseEvent *event)
 {
-    // Once the user releases the mouse, the selection process is finished. We need to
-    // extract the selection and update the glWidget
+    //绘制边界完成后生成边界点的坐标数组，传递给glwidget
     if (event->button() == Qt::LeftButton) {
 
         // Draw the last line
@@ -145,14 +144,9 @@ void SourceWidget::mouseReleaseEvent(QMouseEvent *event)
         QPolygonF selectionPoly = path.toFillPolygon();
         QRectF boundingRect = selectionPoly.boundingRect();
 
-
-        // Don't pass bad selections on
         if (!(boundingRect.width()>20 && boundingRect.height()>20)) return;
 
-        // adjusted - boundary value will be cut without it
         QImage sourcePatch = image.copy(boundingRect.toRect().adjusted(-1,-1,1,1));
-
-        // Pass source patch pixels to glWidet
         glWidget->setSourcePatch(sourcePatch);
 
         qreal x0,x1,y0,y1;
@@ -170,11 +164,6 @@ void SourceWidget::mouseReleaseEvent(QMouseEvent *event)
             }
         }
 
-        //assert(cPoint != QPoint(-1,-1));
-        if (cPoint == QPoint(-1,-1)){
-            qDebug() << "assert(cPoint != QPoint(-1,-1)) fails";
-            return;
-        }
         // Track the boundary of the selection
         std::vector<CDTPoint> boundaryVector;
 
@@ -196,13 +185,7 @@ void SourceWidget::mouseReleaseEvent(QMouseEvent *event)
             }
             c++;
         } while (cont);
-        if (boundaryVector.size()>8192){
-            path = QPainterPath();
-            update();
-            QMessageBox::warning(this, tr("Boundary Size"),
-                               tr("Largest supported boundary size is 8192"));
-            return;
-        }
+
         glWidget->updateSelection(boundaryVector);
         glWidget->update();
     }

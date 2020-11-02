@@ -22,12 +22,10 @@ protected:
     void mouseReleaseEvent(QMouseEvent * event);
     void paintEvent(QPaintEvent * event);
 private:
-    // Boundary tracing aux method
     QPoint findStartingFromDir(QPolygonF & selectionPoly, int x, int y, int & dir);
 
-    // Once we get the selection, we need to update the glWidget
     GLWidget * glWidget;
-    // Does the drawing
+
     QPainterPath path;
 
     QPoint lastPoint;

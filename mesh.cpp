@@ -1,5 +1,6 @@
 #include "mesh.h"
 
+/*处理ROI中的顶点，生成三角形数组，保存在成员变量中*/
 Mesh::Mesh(std::vector<CDTPoint> ROI)
 {
     using namespace std;
